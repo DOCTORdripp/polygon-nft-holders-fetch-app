@@ -2,7 +2,7 @@
 
 ## 🌟 **LIVE DEMO** 🌟
 
-### **✨ [TRY IT NOW: https://hodlers.doctordripp.com/](https://hodlers.doctordripp.com/) ✨**
+### **✨ <a href="https://hodlers.doctordripp.com/" target="_blank">TRY IT NOW: https://hodlers.doctordripp.com/</a> ✨**
 
 🚀 **Full-featured NFT hodler analytics tool with rainbow UI, CSV export, and donation support!** 🚀
 
