@@ -5,6 +5,25 @@ export default function HomePage() {
   const [loading, setLoading] = useState(false);
   const [hodlers, setHodlers] = useState(null);
   const [error, setError] = useState("");
+  
+  // Modal and Captcha state
+  const [showCaptchaModal, setShowCaptchaModal] = useState(false);
+  const [captcha, setCaptcha] = useState(generateCaptcha());
+  const [captchaInput, setCaptchaInput] = useState("");
+  const [pendingContracts, setPendingContracts] = useState([]);
+
+  // Generate simple math captcha
+  function generateCaptcha() {
+    const num1 = Math.floor(Math.random() * 10) + 1;
+    const num2 = Math.floor(Math.random() * 10) + 1;
+    const operators = ['+', '-'];
+    const operator = operators[Math.floor(Math.random() * operators.length)];
+    
+    const question = `${num1} ${operator} ${num2}`;
+    const answer = operator === '+' ? num1 + num2 : num1 - num2;
+    
+    return { question, answer };
+  }
 
   // Function to extract contract address from various URL formats
   const extractContractAddress = (text) => {
@@ -60,11 +79,10 @@ export default function HomePage() {
     document.body.removeChild(link);
   };
 
-  const handleSubmit = async (e) => {
+  const handleFormSubmit = async (e) => {
     e.preventDefault();
     setError("");
     setHodlers(null);
-    setLoading(true);
 
     // Parse input: one address/URL per line, or comma/space separated
     const lines = input
@@ -74,7 +92,6 @@ export default function HomePage() {
 
     if (lines.length === 0) {
       setError("Please enter at least one contract address or URL.");
-      setLoading(false);
       return;
     }
 
@@ -93,7 +110,6 @@ export default function HomePage() {
 
     if (contractAddresses.length === 0) {
       setError("No valid contract addresses or URLs found. Please check your input format.");
-      setLoading(false);
       return;
     }
 
@@ -102,11 +118,32 @@ export default function HomePage() {
       console.warn("Could not parse the following inputs:", invalidInputs);
     }
 
+    // Store contracts and show captcha modal
+    setPendingContracts(contractAddresses);
+    setShowCaptchaModal(true);
+    setCaptcha(generateCaptcha()); // Generate fresh captcha
+    setCaptchaInput("");
+  };
+
+  const handleCaptchaSubmit = async () => {
+    // Validate captcha
+    const captchaAnswer = parseInt(captchaInput.trim());
+    if (isNaN(captchaAnswer) || captchaAnswer !== captcha.answer) {
+      setError("❌ Captcha incorrect. Please solve the math problem correctly.");
+      setCaptcha(generateCaptcha()); // Generate new captcha
+      setCaptchaInput("");
+      return;
+    }
+
+    // Close modal and proceed with API call
+    setShowCaptchaModal(false);
+    setLoading(true);
+
     try {
       const resp = await fetch("/api/holders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contracts: contractAddresses }),
+        body: JSON.stringify({ contracts: pendingContracts }),
       });
       if (!resp.ok) {
         const err = await resp.json();
@@ -115,15 +152,23 @@ export default function HomePage() {
       const { result } = await resp.json();
       setHodlers(result);
       
-      // Show success message with parsed count
-      if (invalidInputs.length > 0) {
-        setError(`✅ Successfully parsed ${contractAddresses.length} contract(s). ${invalidInputs.length} input(s) could not be parsed and were skipped.`);
-      }
+      // Reset states
+      setCaptchaInput("");
+      setError("");
+      
     } catch (e) {
       setError(e.message);
     } finally {
       setLoading(false);
+      setPendingContracts([]);
     }
+  };
+
+  const closeCaptchaModal = () => {
+    setShowCaptchaModal(false);
+    setCaptchaInput("");
+    setPendingContracts([]);
+    setError("");
   };
 
   return (
@@ -281,6 +326,17 @@ export default function HomePage() {
           0% { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
         }
+        
+        /* Hide number input spinners */
+        input[type="number"]::-webkit-outer-spin-button,
+        input[type="number"]::-webkit-inner-spin-button {
+          -webkit-appearance: none;
+          margin: 0;
+        }
+        
+        input[type="number"] {
+          -moz-appearance: textfield;
+        }
       `}</style>
       
       <div style={{
@@ -338,7 +394,7 @@ export default function HomePage() {
             position: 'relative',
             zIndex: 2,
           }}>
-            <form onSubmit={handleSubmit}>
+            <form onSubmit={handleFormSubmit}>
               <div style={{ marginBottom: '2rem' }}>
                 <label style={{
                   display: 'block',
@@ -701,7 +757,319 @@ One per line or comma separated - any format supported above.`}
             </div>
           )}
         </div>
+
+        {/* Donation Section */}
+        <div className="card-glow neon-border" style={{
+          background: 'linear-gradient(135deg, rgba(10, 15, 25, 0.95), rgba(15, 10, 20, 0.9))',
+          borderRadius: '20px',
+          padding: '2rem',
+          backdropFilter: 'blur(25px)',
+          border: '2px solid rgba(255, 20, 147, 0.3)',
+          marginTop: '2rem',
+          maxWidth: '900px',
+          margin: '2rem auto 0 auto',
+        }}>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>💎</div>
+            <h3 className="rainbow-text" style={{
+              fontFamily: 'Orbitron, monospace',
+              fontSize: '1.5rem',
+              fontWeight: '700',
+              letterSpacing: '1px',
+              marginBottom: '1rem',
+            }}>
+              SUPPORT DEVELOPMENT
+            </h3>
+            <p style={{
+              color: '#9ca3af',
+              fontSize: '1rem',
+              marginBottom: '1.5rem',
+              fontStyle: 'italic',
+            }}>
+              If this tool helped you discover elite hodlers, consider supporting its development! ❤️
+            </p>
+            
+            <div style={{
+              background: 'linear-gradient(135deg, rgba(255, 235, 59, 0.08), rgba(76, 175, 80, 0.08), rgba(33, 150, 243, 0.08))',
+              border: '1px solid rgba(255, 235, 59, 0.3)',
+              borderRadius: '12px',
+              padding: '1.5rem',
+              marginBottom: '1rem',
+            }}>
+              <div style={{
+                color: '#ffeb3b',
+                fontSize: '1rem',
+                fontWeight: '600',
+                marginBottom: '1rem',
+                textShadow: '0 0 10px rgba(255, 235, 59, 0.3)',
+              }}>
+                💰 Donation Wallet (Any Token Welcome)
+              </div>
+              
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '1rem',
+                flexWrap: 'wrap',
+              }}>
+                <div style={{
+                  fontFamily: 'Fira Code, monospace',
+                  fontSize: '0.9rem',
+                  color: '#ffffff',
+                  background: 'linear-gradient(135deg, rgba(5, 10, 20, 0.9), rgba(10, 5, 15, 0.95))',
+                  padding: '0.75rem 1rem',
+                  borderRadius: '8px',
+                  border: '1px solid rgba(255, 20, 147, 0.3)',
+                  wordBreak: 'break-all',
+                  maxWidth: '400px',
+                }}>
+                  0xD5A8b103DdaAF4A21268249A28742e115f35f3a9
+                </div>
+                
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText('0xD5A8b103DdaAF4A21268249A28742e115f35f3a9');
+                    // Show brief success feedback
+                    const btn = event.target;
+                    const originalText = btn.textContent;
+                    btn.textContent = '✅ Copied!';
+                    btn.style.background = 'linear-gradient(135deg, rgba(76, 175, 80, 0.8), rgba(33, 150, 243, 0.8))';
+                    setTimeout(() => {
+                      btn.textContent = originalText;
+                      btn.style.background = '';
+                    }, 2000);
+                  }}
+                  className="rainbowBtn"
+                  style={{
+                    padding: '0.75rem 1rem',
+                    fontSize: '0.9rem',
+                    fontWeight: '600',
+                    fontFamily: 'Orbitron, monospace',
+                    textTransform: 'uppercase',
+                    letterSpacing: '1px',
+                  }}
+                >
+                  📋 Copy Address
+                </button>
+              </div>
+            </div>
+            
+            <div style={{
+              display: 'flex',
+              justifyContent: 'center',
+              gap: '1.5rem',
+              flexWrap: 'wrap',
+              fontSize: '0.9rem',
+              color: '#9ca3af',
+            }}>
+              <span>💜 MATIC</span>
+              <span>🌈 MANA</span>
+              <span>💎 ETH</span>
+              <span>🚀 USDC</span>
+              <span>✨ Any Token</span>
+            </div>
+            
+            <p style={{
+              color: '#6b7280',
+              fontSize: '0.8rem',
+              marginTop: '1rem',
+              fontStyle: 'italic',
+            }}>
+              🌟 100% optional • Keeps this tool free & open source • Thank you! 🌟
+            </p>
+          </div>
+        </div>
       </div>
+
+      {/* Captcha Modal */}
+      {showCaptchaModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '100%',
+          background: 'rgba(0, 0, 0, 0.8)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          backdropFilter: 'blur(10px)',
+        }}>
+          <div className="card-glow neon-border" style={{
+            background: 'linear-gradient(135deg, rgba(10, 15, 25, 0.98), rgba(15, 10, 20, 0.95))',
+            borderRadius: '20px',
+            padding: '3rem',
+            backdropFilter: 'blur(25px)',
+            border: '2px solid rgba(255, 20, 147, 0.5)',
+            maxWidth: '500px',
+            width: '90%',
+            margin: '2rem',
+            position: 'relative',
+            animation: 'float 6s ease-in-out infinite',
+          }}>
+            {/* Close Button */}
+            <button
+              onClick={closeCaptchaModal}
+              style={{
+                position: 'absolute',
+                top: '1rem',
+                right: '1rem',
+                background: 'linear-gradient(135deg, rgba(255, 23, 68, 0.3), rgba(255, 152, 0, 0.3))',
+                border: '1px solid rgba(255, 23, 68, 0.5)',
+                borderRadius: '50%',
+                width: '40px',
+                height: '40px',
+                color: '#ff1744',
+                fontSize: '1.2rem',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'all 0.3s ease',
+                fontWeight: 'bold',
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.background = 'linear-gradient(135deg, rgba(255, 23, 68, 0.5), rgba(255, 152, 0, 0.5))';
+                e.target.style.transform = 'scale(1.1)';
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.background = 'linear-gradient(135deg, rgba(255, 23, 68, 0.3), rgba(255, 152, 0, 0.3))';
+                e.target.style.transform = 'scale(1)';
+              }}
+            >
+              ✕
+            </button>
+
+            {/* Modal Header */}
+            <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+              <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🛡️</div>
+              <h2 className="rainbow-text" style={{
+                fontFamily: 'Orbitron, monospace',
+                fontSize: '1.8rem',
+                fontWeight: '700',
+                letterSpacing: '1px',
+                marginBottom: '0.5rem',
+              }}>
+                SECURITY CHECK
+              </h2>
+              <p style={{
+                color: '#9ca3af',
+                fontSize: '1rem',
+                fontStyle: 'italic',
+              }}>
+                Complete this simple math problem to proceed
+              </p>
+            </div>
+
+            {/* Captcha Question */}
+            <div style={{
+              marginBottom: '2rem',
+              padding: '2rem',
+              background: 'linear-gradient(135deg, rgba(255, 235, 59, 0.08), rgba(76, 175, 80, 0.08), rgba(33, 150, 243, 0.08))',
+              border: '1px solid rgba(255, 235, 59, 0.3)',
+              borderRadius: '12px',
+              textAlign: 'center',
+            }}>
+              <div style={{ 
+                marginBottom: '1.5rem', 
+                fontSize: '2rem',
+                fontWeight: '700', 
+                color: '#ffeb3b',
+                fontFamily: 'Orbitron, monospace',
+                textShadow: '0 0 15px rgba(255, 235, 59, 0.6)',
+              }}>
+                What is {captcha.question} ?
+              </div>
+              <input
+                type="number"
+                value={captchaInput}
+                onChange={(e) => setCaptchaInput(e.target.value)}
+                placeholder="Answer"
+                autoFocus
+                style={{
+                  width: '200px',
+                  padding: '1rem',
+                  fontSize: '1.2rem',
+                  fontFamily: 'Orbitron, monospace',
+                  fontWeight: '600',
+                  background: 'linear-gradient(135deg, rgba(5, 10, 20, 0.9), rgba(10, 5, 15, 0.95))',
+                  border: '2px solid rgba(255, 235, 59, 0.4)',
+                  borderRadius: '12px',
+                  color: '#ffffff',
+                  outline: 'none',
+                  textAlign: 'center',
+                  transition: 'all 0.3s ease',
+                  boxShadow: 'inset 0 2px 10px rgba(0, 0, 0, 0.3)',
+                }}
+                onFocus={(e) => {
+                  e.target.style.borderColor = '#ffeb3b';
+                  e.target.style.boxShadow = '0 0 20px rgba(255, 235, 59, 0.4), inset 0 2px 10px rgba(0, 0, 0, 0.3)';
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = 'rgba(255, 235, 59, 0.4)';
+                  e.target.style.boxShadow = 'inset 0 2px 10px rgba(0, 0, 0, 0.3)';
+                }}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    handleCaptchaSubmit();
+                  }
+                }}
+              />
+            </div>
+
+            {/* Modal Buttons */}
+            <div style={{
+              display: 'flex',
+              gap: '1rem',
+              justifyContent: 'center',
+            }}>
+              <button
+                onClick={closeCaptchaModal}
+                style={{
+                  padding: '0.75rem 1.5rem',
+                  fontSize: '1rem',
+                  fontWeight: '600',
+                  fontFamily: 'Orbitron, monospace',
+                  textTransform: 'uppercase',
+                  letterSpacing: '1px',
+                  background: 'linear-gradient(135deg, rgba(100, 100, 100, 0.3), rgba(120, 120, 120, 0.3))',
+                  color: '#cccccc',
+                  border: '1px solid rgba(100, 100, 100, 0.5)',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  transition: 'all 0.3s ease',
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.background = 'linear-gradient(135deg, rgba(100, 100, 100, 0.5), rgba(120, 120, 120, 0.5))';
+                  e.target.style.transform = 'translateY(-2px)';
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.background = 'linear-gradient(135deg, rgba(100, 100, 100, 0.3), rgba(120, 120, 120, 0.3))';
+                  e.target.style.transform = 'translateY(0px)';
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCaptchaSubmit}
+                className="rainbowBtn"
+                style={{
+                  padding: '0.75rem 1.5rem',
+                  fontSize: '1rem',
+                  fontWeight: '600',
+                  fontFamily: 'Orbitron, monospace',
+                  textTransform: 'uppercase',
+                  letterSpacing: '1px',
+                }}
+              >
+                🚀 VERIFY & FETCH
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 } 
