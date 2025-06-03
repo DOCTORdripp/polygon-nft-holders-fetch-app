@@ -1,0 +1,707 @@
+import { useState } from "react";
+
+export default function HomePage() {
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [hodlers, setHodlers] = useState(null);
+  const [error, setError] = useState("");
+
+  // Function to extract contract address from various URL formats
+  const extractContractAddress = (text) => {
+    const trimmedText = text.trim();
+    
+    // Direct contract address (0x followed by 40 hex characters)
+    const directAddressMatch = trimmedText.match(/^(0x[a-fA-F0-9]{40})$/);
+    if (directAddressMatch) {
+      return directAddressMatch[1];
+    }
+    
+    // DCL Marketplace URL: https://decentraland.org/marketplace/contracts/{address}/items/*
+    const dclMatch = trimmedText.match(/decentraland\.org\/marketplace\/contracts\/(0x[a-fA-F0-9]{40})/i);
+    if (dclMatch) {
+      return dclMatch[1];
+    }
+    
+    // Polygonscan URL: https://polygonscan.com/address/{address}
+    const polygonscanMatch = trimmedText.match(/polygonscan\.com\/address\/(0x[a-fA-F0-9]{40})/i);
+    if (polygonscanMatch) {
+      return polygonscanMatch[1];
+    }
+    
+    // If no pattern matches, return null
+    return null;
+  };
+
+  // CSV Export functionality
+  const exportToCSV = (data, filename = 'polygon-hodlers.csv') => {
+    if (!data || data.length === 0) return;
+    
+    // Create CSV content
+    const headers = ['Rank', 'Wallet Address', 'DCL Profile', 'Total Items'];
+    const csvContent = [
+      headers.join(','),
+      ...data.map((item, index) => [
+        index + 1,
+        `"${item.wallet}"`,
+        `"https://decentraland.org/marketplace/accounts/${item.wallet}"`,
+        item.total
+      ].join(','))
+    ].join('\n');
+    
+    // Create and download file
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+    setHodlers(null);
+    setLoading(true);
+
+    // Parse input: one address/URL per line, or comma/space separated
+    const lines = input
+      .split(/\s|,|\n/)
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+
+    if (lines.length === 0) {
+      setError("Please enter at least one contract address or URL.");
+      setLoading(false);
+      return;
+    }
+
+    // Extract contract addresses from various formats
+    const contractAddresses = [];
+    const invalidInputs = [];
+
+    for (const line of lines) {
+      const contractAddress = extractContractAddress(line);
+      if (contractAddress) {
+        contractAddresses.push(contractAddress);
+      } else if (line.length > 10) { // Only flag longer strings as potentially invalid
+        invalidInputs.push(line.substring(0, 50) + (line.length > 50 ? "..." : ""));
+      }
+    }
+
+    if (contractAddresses.length === 0) {
+      setError("No valid contract addresses or URLs found. Please check your input format.");
+      setLoading(false);
+      return;
+    }
+
+    // Show warning for invalid inputs but continue with valid ones
+    if (invalidInputs.length > 0) {
+      console.warn("Could not parse the following inputs:", invalidInputs);
+    }
+
+    try {
+      const resp = await fetch("/api/holders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contracts: contractAddresses }),
+      });
+      if (!resp.ok) {
+        const err = await resp.json();
+        throw new Error(err.error || "Unknown server error");
+      }
+      const { result } = await resp.json();
+      setHodlers(result);
+      
+      // Show success message with parsed count
+      if (invalidInputs.length > 0) {
+        setError(`✅ Successfully parsed ${contractAddresses.length} contract(s). ${invalidInputs.length} input(s) could not be parsed and were skipped.`);
+      }
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <>
+      <style jsx global>{`
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Exo+2:wght@300;400;600;700&display=swap');
+        
+        * {
+          margin: 0;
+          padding: 0;
+          box-sizing: border-box;
+        }
+        
+        body {
+          background: linear-gradient(135deg, #0a0a0a 0%, #1a0d1a 15%, #0d0d1a 30%, #1a0d0d 45%, #0d1a0d 60%, #1a1a0d 75%, #1a0d1a 90%, #0a0a0a 100%);
+          min-height: 100vh;
+          color: #ffffff;
+          font-family: 'Exo 2', sans-serif;
+          overflow-x: hidden;
+          position: relative;
+        }
+        
+        body::before {
+          content: '';
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 300%;
+          height: 300%;
+          background: 
+            linear-gradient(45deg, transparent 30%, rgba(255, 0, 128, 0.03) 35%, rgba(255, 0, 128, 0.08) 40%, transparent 45%),
+            linear-gradient(-45deg, transparent 30%, rgba(0, 255, 128, 0.03) 35%, rgba(0, 255, 128, 0.08) 40%, transparent 45%),
+            linear-gradient(90deg, transparent 30%, rgba(128, 0, 255, 0.03) 35%, rgba(128, 0, 255, 0.08) 40%, transparent 45%),
+            linear-gradient(0deg, transparent 30%, rgba(255, 128, 0, 0.03) 35%, rgba(255, 128, 0, 0.08) 40%, transparent 45%);
+          pointer-events: none;
+          z-index: -2;
+          animation: scroll-bg 20s linear infinite;
+        }
+        
+        body::after {
+          content: '';
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: 
+            radial-gradient(circle at 20% 50%, rgba(255, 20, 147, 0.15) 0%, transparent 50%),
+            radial-gradient(circle at 80% 20%, rgba(0, 191, 255, 0.15) 0%, transparent 50%),
+            radial-gradient(circle at 40% 80%, rgba(50, 205, 50, 0.1) 0%, transparent 50%),
+            radial-gradient(circle at 60% 60%, rgba(255, 165, 0, 0.1) 0%, transparent 50%),
+            radial-gradient(circle at 30% 30%, rgba(138, 43, 226, 0.1) 0%, transparent 50%);
+          pointer-events: none;
+          z-index: -1;
+        }
+        
+        @keyframes scroll-bg {
+          0% { transform: translate(-33%, -33%) rotate(0deg); }
+          100% { transform: translate(-33%, -33%) rotate(360deg); }
+        }
+        
+        @keyframes rainbowBG {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+        
+        .rainbowBtn {
+          animation: rainbowBG 3s linear infinite;
+          background: linear-gradient(90deg, red, #ff9a00, #d0de21, #4fdc4a, #3fdad8, #2fc9e2, #1c7fee, #5f15f2, #ba0cf8, #fb07d9, red, #ff9a00);
+          background-size: 800% auto;
+          border: none;
+          border-radius: 1rem;
+          color: #fff;
+          cursor: pointer;
+          font-size: 1rem;
+          padding: .75rem 1.5rem;
+          transition: all .3s ease;
+          font-family: 'Orbitron', monospace;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+          box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3), 0 0 20px rgba(255, 255, 255, 0.1);
+          text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+        }
+        
+        .rainbowBtn:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 6px 25px rgba(0, 0, 0, 0.4), 0 0 30px rgba(255, 255, 255, 0.2);
+        }
+        
+        .rainbowBtn:active {
+          transform: translateY(0px);
+        }
+        
+        .glow {
+          filter: drop-shadow(0 0 15px rgba(255, 20, 147, 0.6));
+        }
+        
+        .card-glow {
+          box-shadow: 
+            0 4px 25px rgba(0, 0, 0, 0.4),
+            0 0 50px rgba(255, 20, 147, 0.1),
+            inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        }
+        
+        .neon-border {
+          border: 1px solid transparent;
+          background: linear-gradient(135deg, rgba(255, 20, 147, 0.2), rgba(0, 191, 255, 0.2), rgba(50, 205, 50, 0.2)) border-box;
+          border-radius: 12px;
+        }
+        
+        @keyframes pulse-glow {
+          0%, 100% { box-shadow: 0 0 25px rgba(255, 20, 147, 0.4); }
+          50% { box-shadow: 0 0 35px rgba(0, 191, 255, 0.6), 0 0 45px rgba(50, 205, 50, 0.3); }
+        }
+        
+        @keyframes float {
+          0%, 100% { transform: translateY(0px); }
+          50% { transform: translateY(-10px); }
+        }
+        
+        .animate-float {
+          animation: float 6s ease-in-out infinite;
+        }
+        
+        @keyframes rainbow-text {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+        
+        .rainbow-text {
+          background: linear-gradient(45deg, #ff1744, #ff9800, #ffeb3b, #4caf50, #2196f3, #9c27b0, #e91e63, #ff1744);
+          background-size: 400% 400%;
+          background-clip: text;
+          -webkit-background-clip: text;
+          color: transparent;
+          animation: rainbow-text 3s ease-in-out infinite;
+        }
+        
+        .loading-spinner {
+          width: 20px;
+          height: 20px;
+          border: 2px solid transparent;
+          border-top: 2px solid #ff1744;
+          border-right: 2px solid #2196f3;
+          border-bottom: 2px solid #4caf50;
+          border-left: 2px solid #ff9800;
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `}</style>
+      
+      <div style={{
+        minHeight: '100vh',
+        padding: '2rem',
+        background: 'transparent',
+        position: 'relative',
+        zIndex: 1,
+      }}>
+        <div style={{
+          maxWidth: '900px',
+          margin: '0 auto',
+          position: 'relative',
+          zIndex: 2,
+        }}>
+          {/* Hero Section */}
+          <div className="animate-float" style={{
+            textAlign: 'center',
+            marginBottom: '3rem',
+            position: 'relative',
+            zIndex: 3,
+          }}>
+            <h1 className="rainbow-text" style={{
+              fontFamily: 'Orbitron, monospace',
+              fontSize: 'clamp(2.5rem, 5vw, 4rem)',
+              fontWeight: '900',
+              textShadow: '0 0 30px rgba(255, 20, 147, 0.8), 0 0 60px rgba(0, 191, 255, 0.5)',
+              marginBottom: '1rem',
+              letterSpacing: '2px',
+              position: 'relative',
+              zIndex: 4,
+            }}>
+              POLYGON CONTRACT HODLERS TOOL
+            </h1>
+            <p style={{
+              fontSize: '1.2rem',
+              color: '#e0e6ed',
+              fontWeight: '300',
+              textShadow: '0 2px 8px rgba(0, 0, 0, 0.8)',
+              position: 'relative',
+              zIndex: 4,
+            }}>
+              Elite NFT Hodler Analytics & Intelligence
+            </p>
+          </div>
+
+          {/* Main Card */}
+          <div className="card-glow neon-border" style={{
+            background: 'linear-gradient(135deg, rgba(10, 15, 25, 0.95), rgba(15, 10, 20, 0.9))',
+            borderRadius: '20px',
+            padding: '2.5rem',
+            backdropFilter: 'blur(25px)',
+            border: '2px solid rgba(255, 20, 147, 0.3)',
+            marginBottom: '2rem',
+            position: 'relative',
+            zIndex: 2,
+          }}>
+            <form onSubmit={handleSubmit}>
+              <div style={{ marginBottom: '2rem' }}>
+                <label style={{
+                  display: 'block',
+                  marginBottom: '1rem',
+                  fontSize: '1.1rem',
+                  fontWeight: '600',
+                  color: '#ff1744',
+                  textTransform: 'uppercase',
+                  letterSpacing: '1px',
+                  textShadow: '0 0 15px rgba(255, 23, 68, 0.5)',
+                }}>
+                  🎯 COLLECTION ADDRESS PARSER
+                </label>
+                <div style={{
+                  marginBottom: '1rem',
+                  padding: '1rem',
+                  background: 'linear-gradient(135deg, rgba(255, 20, 147, 0.08), rgba(0, 191, 255, 0.08), rgba(50, 205, 50, 0.08))',
+                  border: '1px solid rgba(255, 20, 147, 0.3)',
+                  borderRadius: '8px',
+                  fontSize: '0.9rem',
+                  color: '#b8c5d1',
+                }}>
+                  <div style={{ marginBottom: '0.5rem', fontWeight: '600', color: '#00bfff' }}>
+                    ✨ Supports multiple formats:
+                  </div>
+                  <div>📝 Direct addresses: <code style={{ color: '#ff1744', backgroundColor: 'rgba(255, 23, 68, 0.1)', padding: '2px 6px', borderRadius: '4px' }}>0x4bac5fa12b0dcf7cc9e52fd5afd4990c239c00be</code></div>
+                  <div>🌐 DCL Marketplace: <code style={{ color: '#ffeb3b', backgroundColor: 'rgba(255, 235, 59, 0.1)', padding: '2px 6px', borderRadius: '4px' }}>decentraland.org/marketplace/contracts/0x.../items/0</code></div>
+                  <div>🔍 Polygonscan: <code style={{ color: '#4caf50', backgroundColor: 'rgba(76, 175, 80, 0.1)', padding: '2px 6px', borderRadius: '4px' }}>polygonscan.com/address/0x...</code></div>
+                </div>
+                <textarea
+                  rows={6}
+                  style={{
+                    width: '100%',
+                    padding: '1.5rem',
+                    fontSize: '0.95rem',
+                    fontFamily: 'Fira Code, monospace',
+                    background: 'linear-gradient(135deg, rgba(5, 10, 20, 0.9), rgba(10, 5, 15, 0.95))',
+                    border: '2px solid rgba(255, 20, 147, 0.4)',
+                    borderRadius: '12px',
+                    color: '#ffffff',
+                    resize: 'vertical',
+                    outline: 'none',
+                    transition: 'all 0.3s ease',
+                    boxShadow: 'inset 0 2px 15px rgba(0, 0, 0, 0.5)',
+                  }}
+                  placeholder={`Paste Polygon collection addresses to analyze combined hodler statistics.
+
+One per line or comma separated - any format supported above.`}
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = '#ff1744';
+                    e.target.style.boxShadow = '0 0 25px rgba(255, 23, 68, 0.4), inset 0 2px 15px rgba(0, 0, 0, 0.5)';
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = 'rgba(255, 20, 147, 0.4)';
+                    e.target.style.boxShadow = 'inset 0 2px 15px rgba(0, 0, 0, 0.5)';
+                  }}
+                />
+              </div>
+              
+              <button
+                type="submit"
+                disabled={loading}
+                className={loading ? "" : "rainbowBtn"}
+                style={{
+                  width: '100%',
+                  padding: '1rem 2rem',
+                  fontSize: '1.1rem',
+                  fontWeight: '700',
+                  fontFamily: 'Orbitron, monospace',
+                  textTransform: 'uppercase',
+                  letterSpacing: '2px',
+                  ...(loading && {
+                    background: 'linear-gradient(135deg, rgba(60, 60, 60, 0.8), rgba(80, 80, 80, 0.8))',
+                  }),
+                  color: loading ? '#cccccc' : '#ffffff',
+                  border: 'none',
+                  borderRadius: '12px',
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.3s ease',
+                  position: 'relative',
+                  overflow: 'hidden',
+                  boxShadow: loading 
+                    ? '0 4px 15px rgba(0, 0, 0, 0.3)'
+                    : '0 4px 20px rgba(255, 23, 68, 0.5), 0 0 30px rgba(33, 150, 243, 0.3)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.5rem',
+                  textShadow: loading ? 'none' : '0 1px 2px rgba(0, 0, 0, 0.8)',
+                }}
+                onMouseEnter={(e) => {
+                  if (!loading) {
+                    e.target.style.transform = 'translateY(-2px)';
+                    e.target.style.boxShadow = '0 6px 30px rgba(255, 23, 68, 0.7), 0 0 40px rgba(33, 150, 243, 0.4)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!loading) {
+                    e.target.style.transform = 'translateY(0px)';
+                    e.target.style.boxShadow = '0 4px 20px rgba(255, 23, 68, 0.5), 0 0 30px rgba(33, 150, 243, 0.3)';
+                  }
+                }}
+              >
+                {loading && <div className="loading-spinner"></div>}
+                {loading ? "ANALYZING..." : "🚀 FETCH HODLERS"}
+              </button>
+            </form>
+          </div>
+
+          {/* Error/Success Message */}
+          {error && (
+            <div style={{
+              background: error.startsWith('✅') 
+                ? 'linear-gradient(135deg, rgba(76, 175, 80, 0.25), rgba(33, 150, 243, 0.25))'
+                : 'linear-gradient(135deg, rgba(255, 23, 68, 0.25), rgba(255, 152, 0, 0.25))',
+              border: error.startsWith('✅')
+                ? '2px solid rgba(76, 175, 80, 0.6)'
+                : '2px solid rgba(255, 23, 68, 0.6)',
+              borderRadius: '12px',
+              padding: '1rem 1.5rem',
+              marginBottom: '2rem',
+              color: error.startsWith('✅') ? '#4caf50' : '#ff1744',
+              fontWeight: '600',
+              textAlign: 'center',
+              boxShadow: error.startsWith('✅')
+                ? '0 4px 25px rgba(76, 175, 80, 0.3)'
+                : '0 4px 25px rgba(255, 23, 68, 0.3)',
+              backdropFilter: 'blur(15px)',
+            }}>
+              {error.startsWith('✅') ? '' : '⚠️ '}{error}
+            </div>
+          )}
+
+          {/* Results Section */}
+          {hodlers && hodlers.length > 0 && (
+            <div className="card-glow neon-border" style={{
+              background: 'linear-gradient(135deg, rgba(10, 15, 25, 0.95), rgba(15, 10, 20, 0.9))',
+              borderRadius: '20px',
+              padding: '2.5rem',
+              backdropFilter: 'blur(25px)',
+              border: '2px solid rgba(255, 20, 147, 0.3)',
+            }}>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '1.5rem',
+                flexWrap: 'wrap',
+                gap: '1rem',
+              }}>
+                <h2 style={{
+                  fontFamily: 'Orbitron, monospace',
+                  fontSize: '1.8rem',
+                  fontWeight: '700',
+                  color: '#ff1744',
+                  textShadow: '0 0 15px rgba(255, 23, 68, 0.5)',
+                  letterSpacing: '1px',
+                  margin: 0,
+                }}>
+                  🏆 ELITE HODLERS LEADERBOARD
+                </h2>
+                <button
+                  className="rainbowBtn"
+                  onClick={() => exportToCSV(hodlers, `polygon-hodlers-${new Date().toISOString().split('T')[0]}.csv`)}
+                  style={{
+                    fontSize: '0.9rem',
+                    padding: '0.5rem 1rem',
+                  }}
+                >
+                  📊 EXPORT ALL
+                </button>
+              </div>
+              
+              <div style={{ 
+                overflowX: 'auto',
+                borderRadius: '12px',
+                background: 'linear-gradient(135deg, rgba(5, 10, 20, 0.8), rgba(10, 5, 15, 0.9))',
+                border: '1px solid rgba(255, 20, 147, 0.3)',
+              }}>
+                <table style={{
+                  width: '100%',
+                  borderCollapse: 'collapse',
+                  fontFamily: 'Fira Code, monospace',
+                  fontSize: '0.9rem',
+                }}>
+                  <thead>
+                    <tr style={{
+                      background: 'linear-gradient(135deg, rgba(255, 23, 68, 0.15), rgba(33, 150, 243, 0.15), rgba(255, 235, 59, 0.15))',
+                      borderBottom: '2px solid rgba(255, 23, 68, 0.4)',
+                    }}>
+                      <th style={{
+                        textAlign: 'left',
+                        padding: '1rem 1.5rem',
+                        color: '#ff1744',
+                        fontWeight: '600',
+                        textTransform: 'uppercase',
+                        letterSpacing: '1px',
+                        width: '60%',
+                        textShadow: '0 0 10px rgba(255, 23, 68, 0.3)',
+                      }}>
+                        👤 Wallet Address
+                      </th>
+                      <th style={{
+                        textAlign: 'center',
+                        padding: '1rem 1rem',
+                        color: '#ffeb3b',
+                        fontWeight: '600',
+                        textTransform: 'uppercase',
+                        letterSpacing: '1px',
+                        width: '15%',
+                        textShadow: '0 0 10px rgba(255, 235, 59, 0.3)',
+                      }}>
+                        🌐 DCL Profile
+                      </th>
+                      <th style={{
+                        textAlign: 'right',
+                        padding: '1rem 1.5rem',
+                        color: '#2196f3',
+                        fontWeight: '600',
+                        textTransform: 'uppercase',
+                        letterSpacing: '1px',
+                        width: '25%',
+                        textShadow: '0 0 10px rgba(33, 150, 243, 0.3)',
+                      }}>
+                        💎 Total Items
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {hodlers.map(({ wallet, total }, index) => (
+                      <tr 
+                        key={wallet} 
+                        style={{
+                          borderBottom: '1px solid rgba(255, 20, 147, 0.15)',
+                          transition: 'all 0.3s ease',
+                          background: index < 3 
+                            ? `linear-gradient(135deg, rgba(255, 23, 68, ${0.08 + (3-index) * 0.04}), rgba(33, 150, 243, ${0.05 + (3-index) * 0.03}), rgba(255, 235, 59, ${0.03 + (3-index) * 0.02}))`
+                            : 'transparent',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = 'linear-gradient(135deg, rgba(255, 23, 68, 0.15), rgba(33, 150, 243, 0.08), rgba(255, 235, 59, 0.08))';
+                          e.currentTarget.style.transform = 'scale(1.01)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = index < 3 
+                            ? `linear-gradient(135deg, rgba(255, 23, 68, ${0.08 + (3-index) * 0.04}), rgba(33, 150, 243, ${0.05 + (3-index) * 0.03}), rgba(255, 235, 59, ${0.03 + (3-index) * 0.02}))`
+                            : 'transparent';
+                          e.currentTarget.style.transform = 'scale(1)';
+                        }}
+                      >
+                        <td style={{
+                          padding: '1rem 1.5rem',
+                          color: '#ffffff',
+                          fontFamily: 'Fira Code, monospace',
+                          wordBreak: 'break-all',
+                        }}>
+                          {index < 3 && (
+                            <span style={{
+                              marginRight: '0.5rem',
+                              fontSize: '1.2rem',
+                            }}>
+                              {index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉'}
+                            </span>
+                          )}
+                          {wallet}
+                        </td>
+                        <td style={{
+                          padding: '1rem 1.5rem',
+                          textAlign: 'center',
+                        }}>
+                          <a
+                            href={`https://decentraland.org/marketplace/accounts/${wallet}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                              fontSize: '1.5rem',
+                              textDecoration: 'none',
+                              color: '#ffeb3b',
+                              transition: 'all 0.3s ease',
+                              textShadow: '0 0 8px rgba(255, 235, 59, 0.3)',
+                              cursor: 'pointer',
+                            }}
+                            onMouseEnter={(e) => {
+                              e.target.style.transform = 'scale(1.2)';
+                              e.target.style.textShadow = '0 0 15px rgba(255, 235, 59, 0.8)';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.target.style.transform = 'scale(1)';
+                              e.target.style.textShadow = '0 0 8px rgba(255, 235, 59, 0.3)';
+                            }}
+                            title={`View ${wallet.substring(0, 6)}...${wallet.substring(wallet.length - 4)} on Decentraland`}
+                          >
+                            🌐
+                          </a>
+                        </td>
+                        <td style={{
+                          padding: '1rem 1.5rem',
+                          textAlign: 'right',
+                          color: '#2196f3',
+                          fontWeight: '600',
+                          fontSize: '1rem',
+                          textShadow: '0 0 8px rgba(33, 150, 243, 0.3)',
+                        }}>
+                          {total.toLocaleString()}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              
+              <div style={{
+                marginTop: '1.5rem',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: '1rem',
+              }}>
+                <div style={{
+                  color: '#9ca3af',
+                  fontSize: '0.9rem',
+                  fontStyle: 'italic',
+                }}>
+                  ✨ Data aggregated across all contracts • Ready to copy and analyze
+                </div>
+                <button
+                  className="rainbowBtn"
+                  onClick={() => exportToCSV(hodlers, `polygon-hodlers-leaderboard-${new Date().toISOString().split('T')[0]}.csv`)}
+                  style={{
+                    fontSize: '0.9rem',
+                    padding: '0.5rem 1rem',
+                  }}
+                >
+                  📥 EXPORT TO CSV
+                </button>
+              </div>
+            </div>
+          )}
+
+          {hodlers && hodlers.length === 0 && (
+            <div className="card-glow" style={{
+              background: 'linear-gradient(135deg, rgba(10, 15, 25, 0.95), rgba(15, 10, 20, 0.9))',
+              borderRadius: '20px',
+              padding: '3rem',
+              textAlign: 'center',
+              border: '2px solid rgba(255, 20, 147, 0.3)',
+              backdropFilter: 'blur(25px)',
+            }}>
+              <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🔍</div>
+              <h3 style={{
+                color: '#9ca3af',
+                fontSize: '1.2rem',
+                fontWeight: '400',
+              }}>
+                No hodlers found for the provided contracts
+              </h3>
+            </div>
+          )}
+        </div>
+      </div>
+    </>
+  );
+} 
