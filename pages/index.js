@@ -59,12 +59,14 @@ export default function HomePage() {
     if (!data || data.length === 0) return;
     
     // Create CSV content with enhanced columns
-    const baseHeaders = ['Rank', 'Wallet Address', 'DCL Profile', 'Total Items'];
+    const baseHeaders = ['Rank', 'Wallet Address', 'DCL Profile'];
     
-    // Add Collections Owned column if multiple contracts
+    // Add Collections Owned columns if multiple contracts
     if (totalContracts > 1) {
-      baseHeaders.splice(3, 0, 'Collections Owned');
+      baseHeaders.push('Collections Owned', 'Total Collections');
     }
+    
+    baseHeaders.push('Total Items');
     
     // Add individual contract columns for breakdown
     const contractHeaders = contracts.map(contract => `Contract ${contract.substring(0, 6)}...${contract.substring(38)}`);
@@ -76,10 +78,16 @@ export default function HomePage() {
         const baseRow = [
           index + 1,
           `"${item.wallet}"`,
-          `"https://decentraland.org/marketplace/accounts/${item.wallet}"`,
-          ...(totalContracts > 1 ? [item.collectionsOwned] : []),
-          item.total
+          `"https://decentraland.org/marketplace/accounts/${item.wallet}"`
         ];
+        
+        // Add collections owned columns if multiple contracts
+        if (totalContracts > 1) {
+          const ownedCount = Object.keys(item.breakdown || {}).length;
+          baseRow.push(ownedCount, totalContracts);
+        }
+        
+        baseRow.push(item.total);
         
         // Add breakdown columns
         const breakdownRow = contracts.map(contract => 
@@ -615,162 +623,298 @@ One per line or comma separated - any format supported above.`}
                 background: 'linear-gradient(135deg, rgba(5, 10, 20, 0.8), rgba(10, 5, 15, 0.9))',
                 border: '1px solid rgba(255, 20, 147, 0.3)',
               }}>
-                <table style={{
-                  width: '100%',
-                  borderCollapse: 'collapse',
-                  fontFamily: 'Fira Code, monospace',
-                  fontSize: '0.9rem',
-                }}>
-                  <thead>
-                    <tr style={{
-                      background: 'linear-gradient(135deg, rgba(255, 23, 68, 0.15), rgba(33, 150, 243, 0.15), rgba(255, 235, 59, 0.15))',
-                      borderBottom: '2px solid rgba(255, 23, 68, 0.4)',
-                    }}>
-                      <th style={{
-                        textAlign: 'left',
-                        padding: '1rem 1.5rem',
-                        color: '#ff1744',
-                        fontWeight: '600',
-                        textTransform: 'uppercase',
-                        letterSpacing: '1px',
-                        width: '60%',
-                        textShadow: '0 0 10px rgba(255, 23, 68, 0.3)',
+                {!showBreakdown ? (
+                  // Main Leaderboard Table
+                  <table style={{
+                    width: '100%',
+                    borderCollapse: 'collapse',
+                    fontFamily: 'Fira Code, monospace',
+                    fontSize: '0.9rem',
+                  }}>
+                    <thead>
+                      <tr style={{
+                        background: 'linear-gradient(135deg, rgba(255, 23, 68, 0.15), rgba(33, 150, 243, 0.15), rgba(255, 235, 59, 0.15))',
+                        borderBottom: '2px solid rgba(255, 23, 68, 0.4)',
                       }}>
-                        👤 Wallet Address
-                      </th>
-                      {totalContracts > 1 && (
+                        <th style={{
+                          textAlign: 'left',
+                          padding: '1rem 1.5rem',
+                          color: '#ff1744',
+                          fontWeight: '600',
+                          textTransform: 'uppercase',
+                          letterSpacing: '1px',
+                          width: '60%',
+                          textShadow: '0 0 10px rgba(255, 23, 68, 0.3)',
+                        }}>
+                          👤 Wallet Address
+                        </th>
+                        {totalContracts > 1 && (
+                          <th style={{
+                            textAlign: 'center',
+                            padding: '1rem 1rem',
+                            color: '#4caf50',
+                            fontWeight: '600',
+                            textTransform: 'uppercase',
+                            letterSpacing: '1px',
+                            width: '15%',
+                            textShadow: '0 0 10px rgba(76, 175, 80, 0.3)',
+                          }}>
+                            📊 Collections Owned
+                          </th>
+                        )}
                         <th style={{
                           textAlign: 'center',
                           padding: '1rem 1rem',
-                          color: '#4caf50',
+                          color: '#ffeb3b',
                           fontWeight: '600',
                           textTransform: 'uppercase',
                           letterSpacing: '1px',
                           width: '15%',
-                          textShadow: '0 0 10px rgba(76, 175, 80, 0.3)',
+                          textShadow: '0 0 10px rgba(255, 235, 59, 0.3)',
                         }}>
-                          📊 Collections Owned
+                          🌐 DCL Profile
                         </th>
-                      )}
-                      <th style={{
-                        textAlign: 'center',
-                        padding: '1rem 1rem',
-                        color: '#ffeb3b',
-                        fontWeight: '600',
-                        textTransform: 'uppercase',
-                        letterSpacing: '1px',
-                        width: '15%',
-                        textShadow: '0 0 10px rgba(255, 235, 59, 0.3)',
-                      }}>
-                        🌐 DCL Profile
-                      </th>
-                      <th style={{
-                        textAlign: 'right',
-                        padding: '1rem 1.5rem',
-                        color: '#2196f3',
-                        fontWeight: '600',
-                        textTransform: 'uppercase',
-                        letterSpacing: '1px',
-                        width: '25%',
-                        textShadow: '0 0 10px rgba(33, 150, 243, 0.3)',
-                      }}>
-                        💎 Total Items
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {hodlers.map(({ wallet, total, collectionsOwned, breakdown }, index) => (
-                      <tr 
-                        key={wallet} 
-                        style={{
-                          borderBottom: '1px solid rgba(255, 20, 147, 0.15)',
-                          transition: 'all 0.3s ease',
-                          background: index < 3 
-                            ? `linear-gradient(135deg, rgba(255, 23, 68, ${0.08 + (3-index) * 0.04}), rgba(33, 150, 243, ${0.05 + (3-index) * 0.03}), rgba(255, 235, 59, ${0.03 + (3-index) * 0.02}))`
-                            : 'transparent',
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.background = 'linear-gradient(135deg, rgba(255, 23, 68, 0.15), rgba(33, 150, 243, 0.08), rgba(255, 235, 59, 0.08))';
-                          e.currentTarget.style.transform = 'scale(1.01)';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.background = index < 3 
-                            ? `linear-gradient(135deg, rgba(255, 23, 68, ${0.08 + (3-index) * 0.04}), rgba(33, 150, 243, ${0.05 + (3-index) * 0.03}), rgba(255, 235, 59, ${0.03 + (3-index) * 0.02}))`
-                            : 'transparent';
-                          e.currentTarget.style.transform = 'scale(1)';
-                        }}
-                      >
-                        <td style={{
-                          padding: '1rem 1.5rem',
-                          color: '#ffffff',
-                          fontFamily: 'Fira Code, monospace',
-                          wordBreak: 'break-all',
-                        }}>
-                          {index < 3 && (
-                            <span style={{
-                              marginRight: '0.5rem',
-                              fontSize: '1.2rem',
-                            }}>
-                              {index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉'}
-                            </span>
-                          )}
-                          {wallet}
-                        </td>
-                        {totalContracts > 1 && (
-                          <td style={{
-                            padding: '1rem 1rem',
-                            textAlign: 'center',
-                            color: '#4caf50',
-                            fontWeight: '600',
-                            fontSize: '1rem',
-                            textShadow: '0 0 8px rgba(76, 175, 80, 0.3)',
-                          }}>
-                            {collectionsOwned}
-                          </td>
-                        )}
-                        <td style={{
-                          padding: '1rem 1.5rem',
-                          textAlign: 'center',
-                        }}>
-                          <a
-                            href={`https://decentraland.org/marketplace/accounts/${wallet}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            style={{
-                              fontSize: '1.5rem',
-                              textDecoration: 'none',
-                              color: '#ffeb3b',
-                              transition: 'all 0.3s ease',
-                              textShadow: '0 0 8px rgba(255, 235, 59, 0.3)',
-                              cursor: 'pointer',
-                            }}
-                            onMouseEnter={(e) => {
-                              e.target.style.transform = 'scale(1.2)';
-                              e.target.style.textShadow = '0 0 15px rgba(255, 235, 59, 0.8)';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.target.style.transform = 'scale(1)';
-                              e.target.style.textShadow = '0 0 8px rgba(255, 235, 59, 0.3)';
-                            }}
-                            title={`View ${wallet.substring(0, 6)}...${wallet.substring(wallet.length - 4)} on Decentraland`}
-                          >
-                            🌐
-                          </a>
-                        </td>
-                        <td style={{
-                          padding: '1rem 1.5rem',
+                        <th style={{
                           textAlign: 'right',
+                          padding: '1rem 1.5rem',
                           color: '#2196f3',
                           fontWeight: '600',
-                          fontSize: '1rem',
-                          textShadow: '0 0 8px rgba(33, 150, 243, 0.3)',
+                          textTransform: 'uppercase',
+                          letterSpacing: '1px',
+                          width: '25%',
+                          textShadow: '0 0 10px rgba(33, 150, 243, 0.3)',
                         }}>
-                          {total.toLocaleString()}
-                        </td>
+                          💎 Total Items
+                        </th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {hodlers.map(({ wallet, total, collectionsOwned, breakdown }, index) => (
+                        <tr 
+                          key={wallet} 
+                          style={{
+                            borderBottom: '1px solid rgba(255, 20, 147, 0.15)',
+                            transition: 'all 0.3s ease',
+                            background: index < 3 
+                              ? `linear-gradient(135deg, rgba(255, 23, 68, ${0.08 + (3-index) * 0.04}), rgba(33, 150, 243, ${0.05 + (3-index) * 0.03}), rgba(255, 235, 59, ${0.03 + (3-index) * 0.02}))`
+                              : 'transparent',
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = 'linear-gradient(135deg, rgba(255, 23, 68, 0.15), rgba(33, 150, 243, 0.08), rgba(255, 235, 59, 0.08))';
+                            e.currentTarget.style.transform = 'scale(1.01)';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = index < 3 
+                              ? `linear-gradient(135deg, rgba(255, 23, 68, ${0.08 + (3-index) * 0.04}), rgba(33, 150, 243, ${0.05 + (3-index) * 0.03}), rgba(255, 235, 59, ${0.03 + (3-index) * 0.02}))`
+                              : 'transparent';
+                            e.currentTarget.style.transform = 'scale(1)';
+                          }}
+                        >
+                          <td style={{
+                            padding: '1rem 1.5rem',
+                            color: '#ffffff',
+                            fontFamily: 'Fira Code, monospace',
+                            wordBreak: 'break-all',
+                          }}>
+                            {index < 3 && (
+                              <span style={{
+                                marginRight: '0.5rem',
+                                fontSize: '1.2rem',
+                              }}>
+                                {index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉'}
+                              </span>
+                            )}
+                            {wallet}
+                          </td>
+                          {totalContracts > 1 && (
+                            <td style={{
+                              padding: '1rem 1rem',
+                              textAlign: 'center',
+                              color: '#4caf50',
+                              fontWeight: '600',
+                              fontSize: '1rem',
+                              textShadow: '0 0 8px rgba(76, 175, 80, 0.3)',
+                            }}>
+                              {collectionsOwned}
+                            </td>
+                          )}
+                          <td style={{
+                            padding: '1rem 1.5rem',
+                            textAlign: 'center',
+                          }}>
+                            <a
+                              href={`https://decentraland.org/marketplace/accounts/${wallet}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{
+                                fontSize: '1.5rem',
+                                textDecoration: 'none',
+                                color: '#ffeb3b',
+                                transition: 'all 0.3s ease',
+                                textShadow: '0 0 8px rgba(255, 235, 59, 0.3)',
+                                cursor: 'pointer',
+                              }}
+                              onMouseEnter={(e) => {
+                                e.target.style.transform = 'scale(1.2)';
+                                e.target.style.textShadow = '0 0 15px rgba(255, 235, 59, 0.8)';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.target.style.transform = 'scale(1)';
+                                e.target.style.textShadow = '0 0 8px rgba(255, 235, 59, 0.3)';
+                              }}
+                              title={`View ${wallet.substring(0, 6)}...${wallet.substring(wallet.length - 4)} on Decentraland`}
+                            >
+                              🌐
+                            </a>
+                          </td>
+                          <td style={{
+                            padding: '1rem 1.5rem',
+                            textAlign: 'right',
+                            color: '#2196f3',
+                            fontWeight: '600',
+                            fontSize: '1rem',
+                            textShadow: '0 0 8px rgba(33, 150, 243, 0.3)',
+                          }}>
+                            {total.toLocaleString()}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  // Collection Breakdown Table
+                  <div>
+                    <div style={{
+                      textAlign: 'center',
+                      padding: '1.5rem',
+                      background: 'linear-gradient(135deg, rgba(255, 23, 68, 0.15), rgba(33, 150, 243, 0.15), rgba(255, 235, 59, 0.15))',
+                      borderBottom: '2px solid rgba(255, 23, 68, 0.4)',
+                    }}>
+                      <h3 style={{
+                        fontFamily: 'Inter',
+                        fontSize: '1.3rem',
+                        fontWeight: '700',
+                        color: '#ff1744',
+                        textShadow: '0 0 15px rgba(255, 23, 68, 0.5)',
+                        letterSpacing: '1px',
+                        margin: 0,
+                      }}>
+                        📊 COLLECTION BREAKDOWN MATRIX
+                      </h3>
+                    </div>
+                    
+                    <div style={{ overflowX: 'auto' }}>
+                      <table style={{
+                        width: '100%',
+                        borderCollapse: 'collapse',
+                        fontFamily: 'Fira Code, monospace',
+                        fontSize: '0.8rem',
+                      }}>
+                        <thead>
+                          <tr style={{
+                            background: 'linear-gradient(135deg, rgba(255, 23, 68, 0.1), rgba(33, 150, 243, 0.1), rgba(255, 235, 59, 0.1))',
+                            borderBottom: '1px solid rgba(255, 23, 68, 0.3)',
+                          }}>
+                            <th style={{
+                              textAlign: 'left',
+                              padding: '0.75rem 1rem',
+                              color: '#ff1744',
+                              fontWeight: '600',
+                              textTransform: 'uppercase',
+                              letterSpacing: '1px',
+                              minWidth: '200px',
+                              textShadow: '0 0 10px rgba(255, 23, 68, 0.3)',
+                            }}>
+                              👤 Wallet
+                            </th>
+                            {contracts.map((contract, index) => (
+                              <th key={contract} style={{
+                                textAlign: 'center',
+                                padding: '0.75rem 0.5rem',
+                                color: index % 3 === 0 ? '#ffeb3b' : index % 3 === 1 ? '#4caf50' : '#2196f3',
+                                fontWeight: '600',
+                                textTransform: 'uppercase',
+                                letterSpacing: '1px',
+                                minWidth: '120px',
+                                textShadow: `0 0 10px ${index % 3 === 0 ? 'rgba(255, 235, 59, 0.3)' : index % 3 === 1 ? 'rgba(76, 175, 80, 0.3)' : 'rgba(33, 150, 243, 0.3)'}`,
+                                fontSize: '0.7rem',
+                              }}>
+                                🏷️ {contract.substring(0, 6)}...{contract.substring(38)}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {hodlers.map(({ wallet, breakdown }, index) => (
+                            <tr 
+                              key={wallet}
+                              style={{
+                                borderBottom: '1px solid rgba(255, 20, 147, 0.15)',
+                                transition: 'all 0.3s ease',
+                                background: index < 3 
+                                  ? `linear-gradient(135deg, rgba(255, 23, 68, ${0.05 + (3-index) * 0.02}), rgba(33, 150, 243, ${0.03 + (3-index) * 0.02}), rgba(255, 235, 59, ${0.02 + (3-index) * 0.01}))`
+                                  : 'transparent',
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.background = 'linear-gradient(135deg, rgba(255, 23, 68, 0.1), rgba(33, 150, 243, 0.05), rgba(255, 235, 59, 0.05))';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.background = index < 3 
+                                  ? `linear-gradient(135deg, rgba(255, 23, 68, ${0.05 + (3-index) * 0.02}), rgba(33, 150, 243, ${0.03 + (3-index) * 0.02}), rgba(255, 235, 59, ${0.02 + (3-index) * 0.01}))`
+                                  : 'transparent';
+                              }}
+                            >
+                              <td style={{
+                                padding: '0.75rem 1rem',
+                                color: '#ffffff',
+                                fontFamily: 'Fira Code, monospace',
+                                wordBreak: 'break-all',
+                                fontSize: '0.75rem',
+                              }}>
+                                {index < 3 && (
+                                  <span style={{
+                                    marginRight: '0.5rem',
+                                    fontSize: '1rem',
+                                  }}>
+                                    {index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉'}
+                                  </span>
+                                )}
+                                {wallet.substring(0, 8)}...{wallet.substring(34)}
+                              </td>
+                              {contracts.map((contract, contractIndex) => {
+                                const hasItems = breakdown && breakdown[contract] && breakdown[contract] > 0;
+                                const itemCount = hasItems ? breakdown[contract] : 0;
+                                return (
+                                  <td key={contract} style={{
+                                    padding: '0.75rem 0.5rem',
+                                    textAlign: 'center',
+                                    color: hasItems ? '#4caf50' : '#666666',
+                                    fontWeight: hasItems ? '700' : '400',
+                                    fontSize: '0.8rem',
+                                    textShadow: hasItems ? '0 0 8px rgba(76, 175, 80, 0.3)' : 'none',
+                                  }}>
+                                    {hasItems ? `✅ ${itemCount}` : '❌'}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    
+                    <div style={{
+                      padding: '1rem',
+                      textAlign: 'center',
+                      color: '#9ca3af',
+                      fontSize: '0.8rem',
+                      fontStyle: 'italic',
+                      background: 'linear-gradient(135deg, rgba(5, 10, 20, 0.5), rgba(10, 5, 15, 0.6))',
+                    }}>
+                      ✅ = Owns items in collection • ❌ = No items • Numbers show item count
+                    </div>
+                  </div>
+                )}
               </div>
               
               <div style={{
@@ -799,140 +943,6 @@ One per line or comma separated - any format supported above.`}
                   📥 EXPORT TO CSV
                 </button>
               </div>
-              
-              {/* Collection Breakdown Table */}
-              {showBreakdown && totalContracts > 1 && (
-                <div style={{
-                  marginTop: '2rem',
-                  padding: '2rem',
-                  background: 'linear-gradient(135deg, rgba(5, 10, 20, 0.8), rgba(10, 5, 15, 0.9))',
-                  border: '1px solid rgba(255, 20, 147, 0.3)',
-                  borderRadius: '12px',
-                }}>
-                  <h3 style={{
-                    fontFamily: 'Inter',
-                    fontSize: '1.5rem',
-                    fontWeight: '700',
-                    color: '#ff1744',
-                    textShadow: '0 0 15px rgba(255, 23, 68, 0.5)',
-                    letterSpacing: '1px',
-                    marginBottom: '1.5rem',
-                    textAlign: 'center',
-                  }}>
-                    📊 COLLECTION BREAKDOWN MATRIX
-                  </h3>
-                  
-                  <div style={{ overflowX: 'auto' }}>
-                    <table style={{
-                      width: '100%',
-                      borderCollapse: 'collapse',
-                      fontFamily: 'Fira Code, monospace',
-                      fontSize: '0.8rem',
-                    }}>
-                      <thead>
-                        <tr style={{
-                          background: 'linear-gradient(135deg, rgba(255, 23, 68, 0.15), rgba(33, 150, 243, 0.15), rgba(255, 235, 59, 0.15))',
-                          borderBottom: '2px solid rgba(255, 23, 68, 0.4)',
-                        }}>
-                          <th style={{
-                            textAlign: 'left',
-                            padding: '0.75rem 1rem',
-                            color: '#ff1744',
-                            fontWeight: '600',
-                            textTransform: 'uppercase',
-                            letterSpacing: '1px',
-                            minWidth: '200px',
-                            textShadow: '0 0 10px rgba(255, 23, 68, 0.3)',
-                          }}>
-                            👤 Wallet
-                          </th>
-                          {contracts.map((contract, index) => (
-                            <th key={contract} style={{
-                              textAlign: 'center',
-                              padding: '0.75rem 0.5rem',
-                              color: index % 3 === 0 ? '#ffeb3b' : index % 3 === 1 ? '#4caf50' : '#2196f3',
-                              fontWeight: '600',
-                              textTransform: 'uppercase',
-                              letterSpacing: '1px',
-                              minWidth: '120px',
-                              textShadow: `0 0 10px ${index % 3 === 0 ? 'rgba(255, 235, 59, 0.3)' : index % 3 === 1 ? 'rgba(76, 175, 80, 0.3)' : 'rgba(33, 150, 243, 0.3)'}`,
-                              fontSize: '0.7rem',
-                            }}>
-                              🏷️ {contract.substring(0, 6)}...{contract.substring(38)}
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {hodlers.map(({ wallet, breakdown }, index) => (
-                          <tr 
-                            key={wallet}
-                            style={{
-                              borderBottom: '1px solid rgba(255, 20, 147, 0.15)',
-                              transition: 'all 0.3s ease',
-                              background: index < 3 
-                                ? `linear-gradient(135deg, rgba(255, 23, 68, ${0.05 + (3-index) * 0.02}), rgba(33, 150, 243, ${0.03 + (3-index) * 0.02}), rgba(255, 235, 59, ${0.02 + (3-index) * 0.01}))`
-                                : 'transparent',
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.background = 'linear-gradient(135deg, rgba(255, 23, 68, 0.1), rgba(33, 150, 243, 0.05), rgba(255, 235, 59, 0.05))';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.background = index < 3 
-                                ? `linear-gradient(135deg, rgba(255, 23, 68, ${0.05 + (3-index) * 0.02}), rgba(33, 150, 243, ${0.03 + (3-index) * 0.02}), rgba(255, 235, 59, ${0.02 + (3-index) * 0.01}))`
-                                : 'transparent';
-                            }}
-                          >
-                            <td style={{
-                              padding: '0.75rem 1rem',
-                              color: '#ffffff',
-                              fontFamily: 'Fira Code, monospace',
-                              wordBreak: 'break-all',
-                              fontSize: '0.75rem',
-                            }}>
-                              {index < 3 && (
-                                <span style={{
-                                  marginRight: '0.5rem',
-                                  fontSize: '1rem',
-                                }}>
-                                  {index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉'}
-                                </span>
-                              )}
-                              {wallet.substring(0, 8)}...{wallet.substring(34)}
-                            </td>
-                            {contracts.map((contract, contractIndex) => {
-                              const hasItems = breakdown && breakdown[contract] && breakdown[contract] > 0;
-                              const itemCount = hasItems ? breakdown[contract] : 0;
-                              return (
-                                <td key={contract} style={{
-                                  padding: '0.75rem 0.5rem',
-                                  textAlign: 'center',
-                                  color: hasItems ? '#4caf50' : '#666666',
-                                  fontWeight: hasItems ? '700' : '400',
-                                  fontSize: '0.8rem',
-                                  textShadow: hasItems ? '0 0 8px rgba(76, 175, 80, 0.3)' : 'none',
-                                }}>
-                                  {hasItems ? `✅ ${itemCount}` : '❌'}
-                                </td>
-                              );
-                            })}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  
-                  <div style={{
-                    marginTop: '1rem',
-                    textAlign: 'center',
-                    color: '#9ca3af',
-                    fontSize: '0.8rem',
-                    fontStyle: 'italic',
-                  }}>
-                    ✅ = Owns items in collection • ❌ = No items • Numbers show item count
-                  </div>
-                </div>
-              )}
             </div>
           )}
 
