@@ -5,6 +5,9 @@ export default function HomePage() {
   const [loading, setLoading] = useState(false);
   const [hodlers, setHodlers] = useState(null);
   const [error, setError] = useState("");
+  const [contracts, setContracts] = useState([]);
+  const [totalContracts, setTotalContracts] = useState(0);
+  const [showBreakdown, setShowBreakdown] = useState(false);
   
   // Modal and Captcha state
   const [showCaptchaModal, setShowCaptchaModal] = useState(false);
@@ -55,16 +58,36 @@ export default function HomePage() {
   const exportToCSV = (data, filename = 'polygon-hodlers.csv') => {
     if (!data || data.length === 0) return;
     
-    // Create CSV content
-    const headers = ['Rank', 'Wallet Address', 'DCL Profile', 'Total Items'];
+    // Create CSV content with enhanced columns
+    const baseHeaders = ['Rank', 'Wallet Address', 'DCL Profile', 'Total Items'];
+    
+    // Add Collections Owned column if multiple contracts
+    if (totalContracts > 1) {
+      baseHeaders.splice(3, 0, 'Collections Owned');
+    }
+    
+    // Add individual contract columns for breakdown
+    const contractHeaders = contracts.map(contract => `Contract ${contract.substring(0, 6)}...${contract.substring(38)}`);
+    const allHeaders = [...baseHeaders, ...contractHeaders];
+    
     const csvContent = [
-      headers.join(','),
-      ...data.map((item, index) => [
-        index + 1,
-        `"${item.wallet}"`,
-        `"https://decentraland.org/marketplace/accounts/${item.wallet}"`,
-        item.total
-      ].join(','))
+      allHeaders.join(','),
+      ...data.map((item, index) => {
+        const baseRow = [
+          index + 1,
+          `"${item.wallet}"`,
+          `"https://decentraland.org/marketplace/accounts/${item.wallet}"`,
+          ...(totalContracts > 1 ? [item.collectionsOwned] : []),
+          item.total
+        ];
+        
+        // Add breakdown columns
+        const breakdownRow = contracts.map(contract => 
+          item.breakdown && item.breakdown[contract] ? item.breakdown[contract] : 0
+        );
+        
+        return [...baseRow, ...breakdownRow].join(',');
+      })
     ].join('\n');
     
     // Create and download file
@@ -149,8 +172,10 @@ export default function HomePage() {
         const err = await resp.json();
         throw new Error(err.error || "Unknown server error");
       }
-      const { result } = await resp.json();
+      const { result, contracts: responseContracts, totalContracts: responseTotalContracts } = await resp.json();
       setHodlers(result);
+      setContracts(responseContracts || []);
+      setTotalContracts(responseTotalContracts || 0);
       
       // Reset states
       setCaptchaInput("");
@@ -558,16 +583,30 @@ One per line or comma separated - any format supported above.`}
                 }}>
                   🏆 ELITE HODLERS LEADERBOARD
                 </h2>
-                <button
-                  className="rainbowBtn"
-                  onClick={() => exportToCSV(hodlers, `polygon-hodlers-${new Date().toISOString().split('T')[0]}.csv`)}
-                  style={{
-                    fontSize: '0.9rem',
-                    padding: '0.5rem 1rem',
-                  }}
-                >
-                  📊 EXPORT ALL
-                </button>
+                <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                  {totalContracts > 1 && (
+                    <button
+                      className="rainbowBtn"
+                      onClick={() => setShowBreakdown(!showBreakdown)}
+                      style={{
+                        fontSize: '0.9rem',
+                        padding: '0.5rem 1rem',
+                      }}
+                    >
+                      📊 {showBreakdown ? 'HIDE' : 'SHOW'} BREAKDOWN
+                    </button>
+                  )}
+                  <button
+                    className="rainbowBtn"
+                    onClick={() => exportToCSV(hodlers, `polygon-hodlers-${new Date().toISOString().split('T')[0]}.csv`)}
+                    style={{
+                      fontSize: '0.9rem',
+                      padding: '0.5rem 1rem',
+                    }}
+                  >
+                    📊 EXPORT ALL
+                  </button>
+                </div>
               </div>
               
               <div style={{ 
@@ -599,6 +638,20 @@ One per line or comma separated - any format supported above.`}
                       }}>
                         👤 Wallet Address
                       </th>
+                      {totalContracts > 1 && (
+                        <th style={{
+                          textAlign: 'center',
+                          padding: '1rem 1rem',
+                          color: '#4caf50',
+                          fontWeight: '600',
+                          textTransform: 'uppercase',
+                          letterSpacing: '1px',
+                          width: '15%',
+                          textShadow: '0 0 10px rgba(76, 175, 80, 0.3)',
+                        }}>
+                          📊 Collections Owned
+                        </th>
+                      )}
                       <th style={{
                         textAlign: 'center',
                         padding: '1rem 1rem',
@@ -626,7 +679,7 @@ One per line or comma separated - any format supported above.`}
                     </tr>
                   </thead>
                   <tbody>
-                    {hodlers.map(({ wallet, total }, index) => (
+                    {hodlers.map(({ wallet, total, collectionsOwned, breakdown }, index) => (
                       <tr 
                         key={wallet} 
                         style={{
@@ -663,6 +716,18 @@ One per line or comma separated - any format supported above.`}
                           )}
                           {wallet}
                         </td>
+                        {totalContracts > 1 && (
+                          <td style={{
+                            padding: '1rem 1rem',
+                            textAlign: 'center',
+                            color: '#4caf50',
+                            fontWeight: '600',
+                            fontSize: '1rem',
+                            textShadow: '0 0 8px rgba(76, 175, 80, 0.3)',
+                          }}>
+                            {collectionsOwned}
+                          </td>
+                        )}
                         <td style={{
                           padding: '1rem 1.5rem',
                           textAlign: 'center',
@@ -734,6 +799,140 @@ One per line or comma separated - any format supported above.`}
                   📥 EXPORT TO CSV
                 </button>
               </div>
+              
+              {/* Collection Breakdown Table */}
+              {showBreakdown && totalContracts > 1 && (
+                <div style={{
+                  marginTop: '2rem',
+                  padding: '2rem',
+                  background: 'linear-gradient(135deg, rgba(5, 10, 20, 0.8), rgba(10, 5, 15, 0.9))',
+                  border: '1px solid rgba(255, 20, 147, 0.3)',
+                  borderRadius: '12px',
+                }}>
+                  <h3 style={{
+                    fontFamily: 'Inter',
+                    fontSize: '1.5rem',
+                    fontWeight: '700',
+                    color: '#ff1744',
+                    textShadow: '0 0 15px rgba(255, 23, 68, 0.5)',
+                    letterSpacing: '1px',
+                    marginBottom: '1.5rem',
+                    textAlign: 'center',
+                  }}>
+                    📊 COLLECTION BREAKDOWN MATRIX
+                  </h3>
+                  
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{
+                      width: '100%',
+                      borderCollapse: 'collapse',
+                      fontFamily: 'Fira Code, monospace',
+                      fontSize: '0.8rem',
+                    }}>
+                      <thead>
+                        <tr style={{
+                          background: 'linear-gradient(135deg, rgba(255, 23, 68, 0.15), rgba(33, 150, 243, 0.15), rgba(255, 235, 59, 0.15))',
+                          borderBottom: '2px solid rgba(255, 23, 68, 0.4)',
+                        }}>
+                          <th style={{
+                            textAlign: 'left',
+                            padding: '0.75rem 1rem',
+                            color: '#ff1744',
+                            fontWeight: '600',
+                            textTransform: 'uppercase',
+                            letterSpacing: '1px',
+                            minWidth: '200px',
+                            textShadow: '0 0 10px rgba(255, 23, 68, 0.3)',
+                          }}>
+                            👤 Wallet
+                          </th>
+                          {contracts.map((contract, index) => (
+                            <th key={contract} style={{
+                              textAlign: 'center',
+                              padding: '0.75rem 0.5rem',
+                              color: index % 3 === 0 ? '#ffeb3b' : index % 3 === 1 ? '#4caf50' : '#2196f3',
+                              fontWeight: '600',
+                              textTransform: 'uppercase',
+                              letterSpacing: '1px',
+                              minWidth: '120px',
+                              textShadow: `0 0 10px ${index % 3 === 0 ? 'rgba(255, 235, 59, 0.3)' : index % 3 === 1 ? 'rgba(76, 175, 80, 0.3)' : 'rgba(33, 150, 243, 0.3)'}`,
+                              fontSize: '0.7rem',
+                            }}>
+                              🏷️ {contract.substring(0, 6)}...{contract.substring(38)}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {hodlers.map(({ wallet, breakdown }, index) => (
+                          <tr 
+                            key={wallet}
+                            style={{
+                              borderBottom: '1px solid rgba(255, 20, 147, 0.15)',
+                              transition: 'all 0.3s ease',
+                              background: index < 3 
+                                ? `linear-gradient(135deg, rgba(255, 23, 68, ${0.05 + (3-index) * 0.02}), rgba(33, 150, 243, ${0.03 + (3-index) * 0.02}), rgba(255, 235, 59, ${0.02 + (3-index) * 0.01}))`
+                                : 'transparent',
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.background = 'linear-gradient(135deg, rgba(255, 23, 68, 0.1), rgba(33, 150, 243, 0.05), rgba(255, 235, 59, 0.05))';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.background = index < 3 
+                                ? `linear-gradient(135deg, rgba(255, 23, 68, ${0.05 + (3-index) * 0.02}), rgba(33, 150, 243, ${0.03 + (3-index) * 0.02}), rgba(255, 235, 59, ${0.02 + (3-index) * 0.01}))`
+                                : 'transparent';
+                            }}
+                          >
+                            <td style={{
+                              padding: '0.75rem 1rem',
+                              color: '#ffffff',
+                              fontFamily: 'Fira Code, monospace',
+                              wordBreak: 'break-all',
+                              fontSize: '0.75rem',
+                            }}>
+                              {index < 3 && (
+                                <span style={{
+                                  marginRight: '0.5rem',
+                                  fontSize: '1rem',
+                                }}>
+                                  {index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉'}
+                                </span>
+                              )}
+                              {wallet.substring(0, 8)}...{wallet.substring(34)}
+                            </td>
+                            {contracts.map((contract, contractIndex) => {
+                              const hasItems = breakdown && breakdown[contract] && breakdown[contract] > 0;
+                              const itemCount = hasItems ? breakdown[contract] : 0;
+                              return (
+                                <td key={contract} style={{
+                                  padding: '0.75rem 0.5rem',
+                                  textAlign: 'center',
+                                  color: hasItems ? '#4caf50' : '#666666',
+                                  fontWeight: hasItems ? '700' : '400',
+                                  fontSize: '0.8rem',
+                                  textShadow: hasItems ? '0 0 8px rgba(76, 175, 80, 0.3)' : 'none',
+                                }}>
+                                  {hasItems ? `✅ ${itemCount}` : '❌'}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  
+                  <div style={{
+                    marginTop: '1rem',
+                    textAlign: 'center',
+                    color: '#9ca3af',
+                    fontSize: '0.8rem',
+                    fontStyle: 'italic',
+                  }}>
+                    ✅ = Owns items in collection • ❌ = No items • Numbers show item count
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

@@ -23,6 +23,9 @@ export default async function handler(req, res) {
 
   // combinedTotals: { walletAddress: totalItemsAcrossAllContracts }
   const combinedTotals = {};
+  
+  // collectionBreakdown: { walletAddress: { contractAddress: itemCount } }
+  const collectionBreakdown = {};
 
   for (const contract of uniqueContracts) {
     let pageKey = null;
@@ -56,9 +59,17 @@ export default async function handler(req, res) {
           // Alchemy's "balance" is already a number
           sumForThisContract += Number(tb.balance || 0);
         }
+        
         if (sumForThisContract > 0) {
+          // Update combined totals
           combinedTotals[ownerAddr] = (combinedTotals[ownerAddr] || 0) 
                                      + sumForThisContract;
+          
+          // Update collection breakdown
+          if (!collectionBreakdown[ownerAddr]) {
+            collectionBreakdown[ownerAddr] = {};
+          }
+          collectionBreakdown[ownerAddr][contract] = sumForThisContract;
         }
       }
 
@@ -67,10 +78,24 @@ export default async function handler(req, res) {
     }
   }
 
-  // Convert to sorted array of [wallet, totalItems], descending by totalItems
+  // Convert to sorted array and add collection ownership info
   const sorted = Object.entries(combinedTotals)
     .sort((a, b) => b[1] - a[1])
-    .map(([wallet, total]) => ({ wallet, total }));
+    .map(([wallet, total]) => {
+      const ownedCollections = Object.keys(collectionBreakdown[wallet] || {}).length;
+      const collectionsOwned = `${ownedCollections}/${uniqueContracts.length}`;
+      
+      return { 
+        wallet, 
+        total, 
+        collectionsOwned,
+        breakdown: collectionBreakdown[wallet] || {}
+      };
+    });
 
-  return res.status(200).json({ result: sorted });
+  return res.status(200).json({ 
+    result: sorted, 
+    contracts: uniqueContracts,
+    totalContracts: uniqueContracts.length
+  });
 } 
