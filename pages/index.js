@@ -174,7 +174,7 @@ export default function HomePage() {
   return (
     <>
       <style jsx global>{`
-        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Exo+2:wght@300;400;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
         
         * {
           margin: 0;
@@ -186,7 +186,7 @@ export default function HomePage() {
           background: linear-gradient(135deg, #0a0a0a 0%, #1a0d1a 15%, #0d0d1a 30%, #1a0d0d 45%, #0d1a0d 60%, #1a1a0d 75%, #1a0d1a 90%, #0a0a0a 100%);
           min-height: 100vh;
           color: #ffffff;
-          font-family: 'Exo 2', sans-serif;
+          font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
           overflow-x: hidden;
           position: relative;
         }
@@ -247,7 +247,7 @@ export default function HomePage() {
           font-size: 1rem;
           padding: .75rem 1.5rem;
           transition: all .3s ease;
-          font-family: 'Orbitron', monospace;
+          font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
           font-weight: 700;
           text-transform: uppercase;
           letter-spacing: 1px;
@@ -360,7 +360,7 @@ export default function HomePage() {
             zIndex: 3,
           }}>
             <h1 className="rainbow-text" style={{
-              fontFamily: 'Orbitron, monospace',
+              fontFamily: 'Inter',
               fontSize: 'clamp(2.5rem, 5vw, 4rem)',
               fontWeight: '900',
               textShadow: '0 0 30px rgba(255, 20, 147, 0.8), 0 0 60px rgba(0, 191, 255, 0.5)',
@@ -465,7 +465,7 @@ One per line or comma separated - any format supported above.`}
                   padding: '1rem 2rem',
                   fontSize: '1.1rem',
                   fontWeight: '700',
-                  fontFamily: 'Orbitron, monospace',
+                  fontFamily: 'Inter',
                   textTransform: 'uppercase',
                   letterSpacing: '2px',
                   ...(loading && {
@@ -548,7 +548,7 @@ One per line or comma separated - any format supported above.`}
                 gap: '1rem',
               }}>
                 <h2 style={{
-                  fontFamily: 'Orbitron, monospace',
+                  fontFamily: 'Inter',
                   fontSize: '1.8rem',
                   fontWeight: '700',
                   color: '#ff1744',
@@ -772,7 +772,7 @@ One per line or comma separated - any format supported above.`}
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>💎</div>
             <h3 className="rainbow-text" style={{
-              fontFamily: 'Orbitron, monospace',
+              fontFamily: 'Inter',
               fontSize: '1.5rem',
               fontWeight: '700',
               letterSpacing: '1px',
@@ -845,7 +845,7 @@ One per line or comma separated - any format supported above.`}
                     padding: '0.75rem 1rem',
                     fontSize: '0.9rem',
                     fontWeight: '600',
-                    fontFamily: 'Orbitron, monospace',
+                    fontFamily: 'Inter',
                     textTransform: 'uppercase',
                     letterSpacing: '1px',
                   }}
@@ -946,7 +946,7 @@ One per line or comma separated - any format supported above.`}
             <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
               <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🛡️</div>
               <h2 className="rainbow-text" style={{
-                fontFamily: 'Orbitron, monospace',
+                fontFamily: 'Inter',
                 fontSize: '1.8rem',
                 fontWeight: '700',
                 letterSpacing: '1px',
@@ -977,7 +977,7 @@ One per line or comma separated - any format supported above.`}
                 fontSize: '2rem',
                 fontWeight: '700', 
                 color: '#ffeb3b',
-                fontFamily: 'Orbitron, monospace',
+                fontFamily: 'Inter',
                 textShadow: '0 0 15px rgba(255, 235, 59, 0.6)',
               }}>
                 What is {captcha.question} ?
@@ -992,7 +992,7 @@ One per line or comma separated - any format supported above.`}
                   width: '200px',
                   padding: '1rem',
                   fontSize: '1.2rem',
-                  fontFamily: 'Orbitron, monospace',
+                  fontFamily: 'Inter',
                   fontWeight: '600',
                   background: 'linear-gradient(135deg, rgba(5, 10, 20, 0.9), rgba(10, 5, 15, 0.95))',
                   border: '2px solid rgba(255, 235, 59, 0.4)',
@@ -1031,7 +1031,7 @@ One per line or comma separated - any format supported above.`}
                   padding: '0.75rem 1.5rem',
                   fontSize: '1rem',
                   fontWeight: '600',
-                  fontFamily: 'Orbitron, monospace',
+                  fontFamily: 'Inter',
                   textTransform: 'uppercase',
                   letterSpacing: '1px',
                   background: 'linear-gradient(135deg, rgba(100, 100, 100, 0.3), rgba(120, 120, 120, 0.3))',
@@ -1059,7 +1059,7 @@ One per line or comma separated - any format supported above.`}
                   padding: '0.75rem 1.5rem',
                   fontSize: '1rem',
                   fontWeight: '600',
-                  fontFamily: 'Orbitron, monospace',
+                  fontFamily: 'Inter',
                   textTransform: 'uppercase',
                   letterSpacing: '1px',
                 }}
